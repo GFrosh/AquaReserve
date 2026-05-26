@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+{% block title %}Explore Fleet · AquaReserve{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="section-head">
+    <span class="eyebrow">The Fleet</span>
+    <h2>Find your perfect ride</h2>
+    <p>Filter by category, search by name or location, and reserve instantly.</p>
+  </div>
+
+  <div class="filterbar">
+    <input type="search" id="qInput" placeholder="🔍  Search by name, description, location…" style="flex:1; min-width:220px;">
+    <select id="typeFilter">
+      <option value="">All categories</option>
+      <option value="boat">Boat</option>
+      <option value="jet_ski">Jet Ski</option>
+      <option value="yacht">Yacht</option>
+      <option value="speed_boat">Speed Boat</option>
+    </select>
+    <select id="availFilter">
+      <option value="">All status</option>
+      <option value="true">Available only</option>
+      <option value="false">Unavailable</option>
+    </select>
+    <select id="sortBy">
+      <option value="-created_at">Newest</option>
+      <option value="price_per_hour">Price: Low → High</option>
+      <option value="-price_per_hour">Price: High → Low</option>
+      <option value="name">Name A–Z</option>
+    </select>
+  </div>
+
+  <div id="fleetGrid" class="fleet-grid"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const grid = document.getElementById('fleetGrid');
+const q = document.getElementById('qInput');
+const typeF = document.getElementById('typeFilter');
+const availF = document.getElementById('availFilter');
+const sortBy = document.getElementById('sortBy');
+
+async function load() {
+  const params = {};
+  if (q.value) params.search = q.value;
+  if (typeF.value) params.type = typeF.value;
+  if (availF.value) params.available = availF.value;
+  if (sortBy.value) params.ordering = sortBy.value;
+  try {
+    const list = await AquaAPI.listWatercraft(params);
+    if (!list.length) { grid.innerHTML = `<div class="empty-state"><div class="ico">🌊</div>No watercraft match your filters.</div>`; return; }
+    grid.innerHTML = list.map(c => `
+      <article class="craft-card">
+        <a href="/watercraft/${c.id}/"><div class="img-wrap">
+          <img src="${craftImage(c)}" alt="${c.name}">
+          <span class="badge ${c.is_available ? '' : 'unavailable'}">${c.is_available ? c.type_display : 'Unavailable'}</span>
+        </div></a>
+        <div class="craft-body">
+          <h3>${c.name}</h3>
+          <div class="craft-meta">
+            <span>👥 ${c.passenger_capacity}</span>
+            <span>🏷️ ${c.type_display}</span>
+            ${c.location ? `<span>📍 ${c.location}</span>` : ''}
+          </div>
+          <div class="price">${formatMoney(c.price_per_hour)} <small>/ hour</small></div>
+          <div class="craft-actions">
+            <a href="/watercraft/${c.id}/" class="btn btn-outline btn-sm">Details</a>
+            <a href="/book/${c.id}/" class="btn btn-primary btn-sm" ${c.is_available ? '' : 'style="pointer-events:none;opacity:.5;"'}>Book now</a>
+          </div>
+        </div>
+      </article>
+    `).join('');
+  } catch (e) { console.error(e); toast('Failed to load fleet', 'error'); }
+}
+
+let t;
+q.addEventListener('input', () => { clearTimeout(t); t = setTimeout(load, 250); });
+typeF.addEventListener('change', load);
+availF.addEventListener('change', load);
+sortBy.addEventListener('change', load);
+load();
+</script>
+{% endblock %}

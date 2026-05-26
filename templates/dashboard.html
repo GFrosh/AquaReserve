@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}My Dashboard · AquaReserve{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="flex-between" style="margin-bottom:2rem;">
+    <div>
+      <span class="eyebrow">My Account</span>
+      <h2 style="margin:0;">Hi, <span id="greetName">there</span> 👋</h2>
+      <p class="muted">Manage your reservations and profile.</p>
+    </div>
+    <a href="/explore/" class="btn btn-primary">Book another →</a>
+  </div>
+
+  <div class="dash-tabs">
+    <button class="dash-tab active" data-tab="upcoming">Upcoming</button>
+    <button class="dash-tab" data-tab="past">Past</button>
+    <button class="dash-tab" data-tab="all">All</button>
+  </div>
+
+  <div id="resList"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+if (!requireAuth()) {}
+else {
+  document.getElementById('greetName').textContent = AquaAPI.getUser().username;
+
+  let ALL = [];
+  let activeTab = 'upcoming';
+
+  function render() {
+    const today = new Date().toISOString().slice(0,10);
+    let list = ALL;
+    if (activeTab === 'upcoming') list = ALL.filter(r => r.reservation_date >= today && !['cancelled','completed','rejected'].includes(r.status));
+    else if (activeTab === 'past') list = ALL.filter(r => r.reservation_date < today || ['completed','cancelled','rejected'].includes(r.status));
+
+    if (!list.length) {
+      document.getElementById('resList').innerHTML = `<div class="empty-state"><div class="ico">📭</div>No reservations in this view.</div>`;
+      return;
+    }
+
+    document.getElementById('resList').innerHTML = `
+      <div class="table-wrap"><table class="aqua-table">
+        <thead><tr><th>Watercraft</th><th>Date</th><th>Time</th><th>Guests</th><th>Total</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        ${list.map(r => `
+          <tr>
+            <td><b>${r.watercraft_detail.name}</b><br><span class="muted" style="font-size:.8rem;">${r.watercraft_detail.type_display}</span></td>
+            <td>${r.reservation_date}</td>
+            <td>${r.start_time.slice(0,5)} – ${r.end_time.slice(0,5)}<br><span class="muted" style="font-size:.8rem;">${r.duration_hours.toFixed(1)}h</span></td>
+            <td>${r.passenger_count}</td>
+            <td>${formatMoney(r.total_price)}</td>
+            <td>${formatStatus(r.status)}</td>
+            <td>${['pending','approved'].includes(r.status) ? `<button class="btn btn-ghost btn-sm" onclick="cancelRes(${r.id})">Cancel</button>` : ''}</td>
+          </tr>`).join('')}
+        </tbody></table></div>`;
+  }
+
+  async function load() {
+    try { ALL = await AquaAPI.listReservations(); ALL = ALL.results || ALL; render(); }
+    catch (e) { toast('Failed to load reservations', 'error'); }
+  }
+
+  window.cancelRes = async (id) => {
+    if (!confirm('Cancel this reservation?')) return;
+    try { await AquaAPI.cancelReservation(id); toast('Reservation cancelled', 'success'); load(); }
+    catch (e) { toast(e.message || 'Could not cancel', 'error'); }
+  };
+
+  document.querySelectorAll('.dash-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.dash-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    activeTab = t.dataset.tab;
+    render();
+  }));
+
+  load();
+}
+</script>
+{% endblock %}

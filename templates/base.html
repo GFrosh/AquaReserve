@@ -1,0 +1,64 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}AquaReserve · Boat & Jet Ski Reservation Platform{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'css/styles.css' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar">
+  <div class="nav-inner">
+    <a href="/" class="logo">
+      <span class="logo-mark">🌊</span> AquaReserve
+    </a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="/explore/">Explore</a></li>
+      <li class="auth-only" hidden><a href="/dashboard/">My Bookings</a></li>
+      <li class="admin-only" hidden><a href="/admin-panel/">Admin</a></li>
+    </ul>
+    <div class="nav-auth">
+      <a href="/login/" class="btn btn-ghost guest-only">Login</a>
+      <a href="/register/" class="btn btn-primary guest-only">Sign Up</a>
+      <span class="user-chip auth-only" hidden>
+        <span class="user-name"></span>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">Logout</button>
+      </span>
+    </div>
+  </div>
+</nav>
+
+<main>{% block content %}{% endblock %}</main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <div class="logo">🌊 AquaReserve</div>
+      <p>Modern reservations for boats, jet skis, yachts & speedboats.</p>
+    </div>
+    <div>
+      <h4>Platform</h4>
+      <a href="/explore/">Browse fleet</a>
+      <a href="/register/">Create account</a>
+      <a href="/dashboard/">My reservations</a>
+    </div>
+    <div>
+      <h4>For operators</h4>
+      <a href="/admin-panel/">Admin dashboard</a>
+      <a href="/admin/">Django admin</a>
+    </div>
+  </div>
+  <div class="footer-bottom">© 2026 AquaReserve. Built with Django.</div>
+</footer>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="{% static 'js/api.js' %}"></script>
+<script src="{% static 'js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
