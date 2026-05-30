@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}AquaReserve · Reserve boats & jet skis online{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow" style="color: var(--aqua-300);">Water Tourism · Reservations · Effortless</span>
+    <h1>Glide across the water. Book it in seconds.</h1>
+    <p class="lead">AquaReserve lets you discover and reserve boats, jet skis, yachts and speedboats from local operators — with real-time availability and zero booking conflicts.</p>
+    <div class="hero-actions">
+      <a href="/explore/" class="btn btn-coral">Explore the fleet →</a>
+      <a href="/register/" class="btn btn-outline" style="background: rgba(255,255,255,0.1); color: white; border-color: rgba(255,255,255,0.5);">Create account</a>
+    </div>
+    <div class="hero-stats">
+      <div class="stat-card"><div class="num" id="statCrafts">—</div><div class="lbl">Watercraft in fleet</div></div>
+      <div class="stat-card"><div class="num">4</div><div class="lbl">Vessel categories</div></div>
+      <div class="stat-card"><div class="num">24/7</div><div class="lbl">Online booking</div></div>
+      <div class="stat-card"><div class="num">0</div><div class="lbl">Booking conflicts</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-head">
+    <span class="eyebrow">Why AquaReserve</span>
+    <h2>Built for operators. Loved by guests.</h2>
+    <p>Everything you need to schedule, validate and manage water-based reservations — in one cohesive platform.</p>
+  </div>
+  <div class="features">
+    <div class="feature"><div class="icon">📅</div><h3>Smart scheduling</h3><p>Pick a date, choose a time window, and reserve in seconds. We auto-detect and block conflicts.</p></div>
+    <div class="feature"><div class="icon">🛥️</div><h3>Diverse fleet</h3><p>Boats, jet skis, yachts and speedboats — every vessel comes with rich photos, pricing & capacity.</p></div>
+    <div class="feature"><div class="icon">🛡️</div><h3>Validated bookings</h3><p>No past dates, no overcapacity, no overlapping windows. Business rules enforced server-side.</p></div>
+    <div class="feature"><div class="icon">👤</div><h3>Role-based access</h3><p>Customers manage their bookings. Admins approve, reject and analyze platform activity.</p></div>
+    <div class="feature"><div class="icon">⚡</div><h3>Modern REST API</h3><p>Built with Django REST Framework + JWT auth. Integrate from any frontend or mobile app.</p></div>
+    <div class="feature"><div class="icon">📊</div><h3>Operator dashboard</h3><p>Live KPIs, revenue tracking, top-booked watercraft and per-reservation status controls.</p></div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0;">
+  <div class="section-head">
+    <span class="eyebrow">Featured Watercraft</span>
+    <h2>Available now on the water</h2>
+  </div>
+  <div id="featuredGrid" class="fleet-grid"></div>
+  <div class="text-center mt-3"><a href="/explore/" class="btn btn-primary">Browse all watercraft →</a></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(async function loadHome() {
+  try {
+    const list = await AquaAPI.listWatercraft({ available: 'true' });
+    document.getElementById('statCrafts').textContent = list.length;
+    const featured = list.slice(0, 3);
+    document.getElementById('featuredGrid').innerHTML = featured.map(c => `
+      <article class="craft-card">
+        <a href="/watercraft/${c.id}/"><div class="img-wrap">
+          <img src="${craftImage(c)}" alt="${c.name}">
+          <span class="badge">${c.type_display}</span>
+        </div></a>
+        <div class="craft-body">
+          <h3>${c.name}</h3>
+          <div class="craft-meta">
+            <span>👥 ${c.passenger_capacity} passengers</span>
+            ${c.location ? `<span>📍 ${c.location}</span>` : ''}
+          </div>
+          <div class="price">${formatMoney(c.price_per_hour)} <small>/ hour</small></div>
+          <div class="craft-actions">
+            <a href="/watercraft/${c.id}/" class="btn btn-outline btn-sm">Details</a>
+            <a href="/book/${c.id}/" class="btn btn-primary btn-sm">Book now</a>
+          </div>
+        </div>
+      </article>
+    `).join('') || `<div class="empty-state"><div class="ico">🌊</div>No watercraft available yet.</div>`;
+  } catch (e) { console.error(e); }
+})();
+</script>
+{% endblock %}

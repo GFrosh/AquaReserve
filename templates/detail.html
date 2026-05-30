@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block title %}Watercraft Details · AquaReserve{% endblock %}
+{% block content %}
+<section class="section">
+  <div id="detail" class="detail-grid"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const pk = window.location.pathname.split('/').filter(Boolean).pop();
+(async () => {
+  try {
+    const c = await AquaAPI.getWatercraft(pk);
+    const html = `
+      <div class="detail-hero"><img src="${craftImage(c)}" alt="${c.name}"></div>
+      <div class="detail-info">
+        <span class="eyebrow">${c.type_display}</span>
+        <h1>${c.name}</h1>
+        <p class="muted">${c.description || 'A premium vessel ready for your next adventure on the water.'}</p>
+        <div class="spec-grid">
+          <div class="spec"><div class="lbl">Price</div><div class="val">${formatMoney(c.price_per_hour)}/hr</div></div>
+          <div class="spec"><div class="lbl">Capacity</div><div class="val">${c.passenger_capacity} pax</div></div>
+          <div class="spec"><div class="lbl">Status</div><div class="val">${c.is_available ? '✅ Available' : '⛔ Unavailable'}</div></div>
+          <div class="spec"><div class="lbl">Location</div><div class="val">${c.location || '—'}</div></div>
+        </div>
+        <a href="/book/${c.id}/" class="btn btn-primary btn-block" ${c.is_available ? '' : 'style="pointer-events:none;opacity:.5;"'}>Reserve this ${c.type_display.toLowerCase()} →</a>
+      </div>
+    `;
+    document.getElementById('detail').innerHTML = html;
+  } catch (e) {
+    document.getElementById('detail').innerHTML = `<div class="empty-state">Watercraft not found.</div>`;
+  }
+})();
+</script>
+{% endblock %}

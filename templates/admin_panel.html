@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Admin Panel · AquaReserve{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="flex-between" style="margin-bottom:2rem;">
+    <div><span class="eyebrow">Operator Console</span><h2 style="margin:0;">Admin Dashboard</h2></div>
+    <button class="btn btn-coral" onclick="openCraftModal()">+ Add Watercraft</button>
+  </div>
+
+  <div id="kpis" class="kpi-grid"></div>
+
+  <div class="dash-tabs">
+    <button class="dash-tab active" data-tab="reservations">Reservations</button>
+    <button class="dash-tab" data-tab="watercraft">Watercraft</button>
+    <button class="dash-tab" data-tab="top">Analytics</button>
+  </div>
+
+  <div id="adminContent"></div>
+</section>
+
+<!-- Watercraft modal -->
+<div class="modal-backdrop" id="craftModal">
+  <div class="modal">
+    <h3 id="craftModalTitle">Add Watercraft</h3>
+    <form id="craftForm">
+      <input type="hidden" name="id">
+      <div class="form-group"><label>Name</label><input class="form-control" name="name" required></div>
+      <div class="form-row">
+        <div class="form-group"><label>Type</label>
+          <select class="form-control" name="type" required>
+            <option value="boat">Boat</option><option value="jet_ski">Jet Ski</option>
+            <option value="yacht">Yacht</option><option value="speed_boat">Speed Boat</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Capacity</label><input type="number" class="form-control" name="passenger_capacity" min="1" required></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Price / hour ($)</label><input type="number" step="0.01" class="form-control" name="price_per_hour" required></div>
+        <div class="form-group"><label>Location</label><input class="form-control" name="location"></div>
+      </div>
+      <div class="form-group"><label>Image URL (optional)</label><input class="form-control" name="image_url" placeholder="https://..."></div>
+      <div class="form-group"><label>Description</label><textarea class="form-control" name="description" rows="3"></textarea></div>
+      <div class="form-group">
+        <label><input type="checkbox" name="is_available" checked> Available for booking</label>
+      </div>
+      <div class="flex gap-1">
+        <button class="btn btn-primary" type="submit">Save</button>
+        <button class="btn btn-ghost" type="button" onclick="closeCraftModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+if (!requireAdmin()) {}
+else {
+  let active = 'reservations';
+
+  async function loadStats() {
+    try {
+      const s = await AquaAPI.adminStats();
+      document.getElementById('kpis').innerHTML = `
+        <div class="kpi"><div class="lbl">Total Bookings</div><div class="val">${s.totals.reservations}</div></div>
+        <div class="kpi"><div class="lbl">Pending</div><div class="val" style="color:#b8860b;">${s.totals.pending}</div></div>
+        <div class="kpi"><div class="lbl">Approved</div><div class="val" style="color:#1f6e3a;">${s.totals.approved}</div></div>
+        <div class="kpi"><div class="lbl">Revenue</div><div class="val">${formatMoney(s.totals.revenue)}</div></div>
+        <div class="kpi"><div class="lbl">Watercraft</div><div class="val">${s.totals.watercraft_available}/${s.totals.watercraft}</div></div>
+        <div class="kpi"><div class="lbl">Today</div><div class="val">${s.totals.today_bookings}</div></div>
+      `;
+      window.__topCraft = s.top_watercraft;
+    } catch (e) {}
+  }
+
+  async function renderTab() {
+    const c = document.getElementById('adminContent');
+    c.innerHTML = `<div class="empty-state">Loading…</div>`;
+    if (active === 'reservations') {
+      try {
+        const list = await AquaAPI.adminReservations();
+        c.innerHTML = list.length ? `
+          <div class="table-wrap"><table class="aqua-table">
+            <thead><tr><th>#</th><th>User</th><th>Watercraft</th><th>Date / Time</th><th>Guests</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>${list.map(r => `
+              <tr>
+                <td>#${r.id}</td>
+                <td>${r.user_username}</td>
+                <td><b>${r.watercraft_detail.name}</b><br><span class="muted" style="font-size:.8rem;">${r.watercraft_detail.type_display}</span></td>
+                <td>${r.reservation_date}<br><span class="muted" style="font-size:.85rem;">${r.start_time.slice(0,5)} – ${r.end_time.slice(0,5)}</span></td>
+                <td>${r.passenger_count}</td>
+                <td>${formatMoney(r.total_price)}</td>
+                <td>${formatStatus(r.status)}</td>
+                <td>
+                  ${r.status === 'pending' ? `
+                    <button class="btn btn-success btn-sm" onclick="setStatus(${r.id},'approved')">Approve</button>
+                    <button class="btn btn-danger btn-sm" onclick="setStatus(${r.id},'rejected')">Reject</button>` : ''}
+                  ${r.status === 'approved' ? `<button class="btn btn-outline btn-sm" onclick="setStatus(${r.id},'completed')">Complete</button>` : ''}
+                </td>
+              </tr>`).join('')}</tbody></table></div>
+        ` : `<div class="empty-state">No reservations yet.</div>`;
+      } catch (e) { c.innerHTML = `<div class="empty-state">Failed to load.</div>`; }
+    } else if (active === 'watercraft') {
+      try {
+        const list = await AquaAPI.listWatercraft();
+        c.innerHTML = `
+          <div class="table-wrap"><table class="aqua-table">
+            <thead><tr><th>Image</th><th>Name</th><th>Type</th><th>Capacity</th><th>$/hr</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>${list.map(w => `
+              <tr>
+                <td><img src="${craftImage(w)}" style="width:70px; height:50px; object-fit:cover; border-radius:8px;"></td>
+                <td><b>${w.name}</b><br><span class="muted" style="font-size:.8rem;">${w.location || ''}</span></td>
+                <td>${w.type_display}</td>
+                <td>${w.passenger_capacity}</td>
+                <td>${formatMoney(w.price_per_hour)}</td>
+                <td>${w.is_available ? '<span class="pill pill-approved">Available</span>' : '<span class="pill pill-rejected">Unavailable</span>'}</td>
+                <td>
+                  <button class="btn btn-outline btn-sm" onclick='editCraft(${JSON.stringify(w)})'>Edit</button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteCraft(${w.id})">Delete</button>
+                </td>
+              </tr>`).join('')}</tbody></table></div>`;
+      } catch (e) { c.innerHTML = `<div class="empty-state">Failed to load.</div>`; }
+    } else {
+      const top = window.__topCraft || [];
+      c.innerHTML = `
+        <div class="table-wrap"><table class="aqua-table">
+          <thead><tr><th>Watercraft</th><th>Type</th><th>Total Bookings</th></tr></thead>
+          <tbody>${top.length ? top.map(t => `
+            <tr><td><b>${t.watercraft__name}</b></td><td>${t.watercraft__type}</td><td>${t.bookings}</td></tr>
+          `).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--muted);">No data yet</td></tr>'}</tbody></table></div>`;
+    }
+  }
+
+  window.setStatus = async (id, status) => {
+    try { await AquaAPI.adminUpdateStatus(id, status); toast('Updated', 'success'); loadStats(); renderTab(); }
+    catch (e) { toast(e.message || 'Failed', 'error'); }
+  };
+
+  window.openCraftModal = () => {
+    document.getElementById('craftForm').reset();
+    document.querySelector('[name=id]').value = '';
+    document.getElementById('craftModalTitle').textContent = 'Add Watercraft';
+    document.getElementById('craftModal').classList.add('active');
+  };
+  window.closeCraftModal = () => document.getElementById('craftModal').classList.remove('active');
+  window.editCraft = (w) => {
+    openCraftModal();
+    document.getElementById('craftModalTitle').textContent = 'Edit Watercraft';
+    const f = document.getElementById('craftForm');
+    Object.entries(w).forEach(([k,v]) => { if (f.elements[k]) {
+      if (f.elements[k].type === 'checkbox') f.elements[k].checked = !!v;
+      else f.elements[k].value = v ?? '';
+    }});
+  };
+  window.deleteCraft = async (id) => {
+    if (!confirm('Delete this watercraft?')) return;
+    try { await AquaAPI.deleteWatercraft(id); toast('Deleted', 'success'); renderTab(); loadStats(); }
+    catch (e) { toast('Delete failed', 'error'); }
+  };
+
+  document.getElementById('craftForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = {};
+    fd.forEach((v,k) => payload[k] = v);
+    payload.is_available = e.target.elements.is_available.checked;
+    payload.passenger_capacity = parseInt(payload.passenger_capacity);
+    payload.price_per_hour = parseFloat(payload.price_per_hour);
+    delete payload.image; // file upload handled separately
+    const id = payload.id; delete payload.id;
+    try {
+      if (id) await AquaAPI.updateWatercraft(id, payload);
+      else await AquaAPI.createWatercraft(payload);
+      toast('Saved', 'success');
+      closeCraftModal(); renderTab(); loadStats();
+    } catch (err) {
+      toast(err.message || 'Save failed', 'error');
+    }
+  });
+
+  document.querySelectorAll('.dash-tab').forEach(t => t.addEventListener('click', () => {
+    document.querySelectorAll('.dash-tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active'); active = t.dataset.tab; renderTab();
+  }));
+
+  loadStats(); renderTab();
+}
+</script>
+{% endblock %}
